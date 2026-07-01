@@ -23,13 +23,15 @@ if %errorlevel%==0 (
 echo Creating a virtual environment in .venv ...
 %PY% -m venv .venv
 
-echo Installing packages (pymysql, rich) ...
+echo Installing packages (pymysql, rich, tomlkit) ...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
 ".venv\Scripts\python.exe" -m pip install -r requirements2.txt
 
 echo.
-echo All set!
-echo   1. Open mariadb_terminal.py and fill in your password.
-echo   2. Start the tool by double-clicking run.bat
+echo Now let's set up your connection (this writes config.toml).
+".venv\Scripts\python.exe" configure.py
+
+echo.
+echo All set! Start the tool by double-clicking run.bat
 echo.
 pause

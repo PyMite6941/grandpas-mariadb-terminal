@@ -8,6 +8,7 @@ library as a friendlier alternative to the plain `mysql` client.
 Made with love as a birthday gift for Grandpa. Happy birthday! 🎉
 """
 
+import os
 import sys
 import time
 
@@ -21,6 +22,7 @@ except ImportError:
     pass
 
 import pymysql
+import tomlkit
 from rich.console import Console
 from rich.table import Table
 from rich.syntax import Syntax
@@ -28,21 +30,35 @@ from rich.syntax import Syntax
 console = Console()
 
 # ---------------------------------------------------------------------------
-# Connection settings.
+# Connection settings live in config.toml (next to this file).
 #
-# USE_PASSWORD toggles whether we send a password at all:
-#   * True  -> use the "password" value below (fill it in).
-#   * False -> connect with no password (for a MariaDB set up without one).
+# Edit it by hand, or run `python configure.py` to fill in the password.
+# The "use_password" key toggles whether a password is sent at all.
 # ---------------------------------------------------------------------------
-USE_PASSWORD = True     # set to False to connect without a password
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(HERE, "config.toml")
 
-CONFIG = {
+# Defaults used if a key is missing from config.toml.
+DEFAULTS = {
+    "use_password": True,
     "host": "127.0.0.1",
     "port": 3306,
     "user": "root",
-    "password": "",     # fill in the password (used only when USE_PASSWORD is True)
+    "password": "",
     "charset": "utf8mb4",
 }
+
+
+def load_config():
+    """Read config.toml and return a plain settings dict."""
+    settings = dict(DEFAULTS)
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, "r", encoding="utf-8") as fh:
+            data = tomlkit.parse(fh.read())
+        for key in DEFAULTS:
+            if key in data:
+                settings[key] = data[key]
+    return settings
 
 
 def connect():
@@ -51,11 +67,12 @@ def connect():
     autocommit=True so INSERT/UPDATE/DELETE take effect right away --
     the same behavior as the standard `mysql` command-line client.
 
-    When USE_PASSWORD is False we drop the password entirely so we can
+    When use_password is false we drop the password entirely so we can
     log in to a server that has no password set.
     """
-    settings = dict(CONFIG)
-    if not USE_PASSWORD:
+    settings = load_config()
+    use_password = bool(settings.pop("use_password", True))
+    if not use_password:
         settings.pop("password", None)
     return pymysql.connect(autocommit=True, **settings)
 
@@ -143,7 +160,7 @@ def main():
         conn = connect()
     except Exception as exc:
         console.print(f"[red]Could not connect: {exc}[/red]")
-        console.print("[dim]Did you set the password in mariadb_terminal.py?[/dim]")
+        console.print("[dim]Did you set the password? Run: python configure.py[/dim]")
         sys.exit(1)
 
     cursor = conn.cursor()

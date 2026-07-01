@@ -22,11 +22,13 @@ fi
 echo "Creating a virtual environment in .venv ..."
 "$PY" -m venv .venv
 
-echo "Installing packages (pymysql, rich) ..."
+echo "Installing packages (pymysql, rich, tomlkit) ..."
 ./.venv/bin/python -m pip install --upgrade pip >/dev/null
 ./.venv/bin/python -m pip install -r requirements2.txt
 
 echo
-echo "All set!"
-echo "  1. Open mariadb_terminal.py and fill in your password."
-echo "  2. Start the tool with:  ./run.sh"
+echo "Now let's set up your connection (this writes config.toml)."
+./.venv/bin/python configure.py
+
+echo
+echo "All set! Start the tool any time with:  ./run.sh"
