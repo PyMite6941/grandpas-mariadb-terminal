@@ -38,11 +38,23 @@ pip install pymysql rich
 
 ### 2. Set your password
 
-Open `mariadb_terminal.py` and fill in the password here:
+Open `mariadb_terminal.py`. The password can be toggled on or off in the
+config near the top:
 
 ```python
-"password": "",     # fill in the password
+USE_PASSWORD = True     # set to False to connect without a password
+
+CONFIG = {
+    ...
+    "password": "",     # fill in the password (used only when USE_PASSWORD is True)
+    ...
+}
 ```
+
+- If your server needs a password, leave `USE_PASSWORD = True` and fill in
+  the `"password"` value.
+- If your server has **no** password set, just change it to
+  `USE_PASSWORD = False` and you can skip the password entirely.
 
 ### 3. Run it
 

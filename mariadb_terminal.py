@@ -28,13 +28,19 @@ from rich.syntax import Syntax
 console = Console()
 
 # ---------------------------------------------------------------------------
-# Connection settings -- fill in your password below.
+# Connection settings.
+#
+# USE_PASSWORD toggles whether we send a password at all:
+#   * True  -> use the "password" value below (fill it in).
+#   * False -> connect with no password (for a MariaDB set up without one).
 # ---------------------------------------------------------------------------
+USE_PASSWORD = True     # set to False to connect without a password
+
 CONFIG = {
     "host": "127.0.0.1",
     "port": 3306,
     "user": "root",
-    "password": "",     # fill in the password
+    "password": "",     # fill in the password (used only when USE_PASSWORD is True)
     "charset": "utf8mb4",
 }
 
@@ -44,8 +50,14 @@ def connect():
 
     autocommit=True so INSERT/UPDATE/DELETE take effect right away --
     the same behavior as the standard `mysql` command-line client.
+
+    When USE_PASSWORD is False we drop the password entirely so we can
+    log in to a server that has no password set.
     """
-    return pymysql.connect(autocommit=True, **CONFIG)
+    settings = dict(CONFIG)
+    if not USE_PASSWORD:
+        settings.pop("password", None)
+    return pymysql.connect(autocommit=True, **settings)
 
 
 def print_results(cursor, elapsed):
