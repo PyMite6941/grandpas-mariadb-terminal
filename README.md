@@ -6,7 +6,29 @@
 A color-coded command-line client for MariaDB — a nicer alternative to the
 plain `mysql` client, built with the `rich` library.
 
-## 1. Install the packages
+## Easiest way (one script does everything)
+
+If you'd rather not run the steps by hand, use the included scripts — they
+create a virtual environment, install the packages, and launch the tool.
+
+**Windows** — double-click `setup.bat` once, then `run.bat` to start it.
+
+**Linux / macOS:**
+
+```
+chmod +x setup.sh run.sh   # first time only
+./setup.sh                 # installs everything
+./run.sh                   # starts the tool
+```
+
+Either way, remember to fill in your password in `mariadb_terminal.py`
+(see step 2 below) before running.
+
+---
+
+## Or do it manually
+
+### 1. Install the packages
 
 ```
 pip install pymysql rich
@@ -14,7 +36,7 @@ pip install pymysql rich
 
 (or `pip install -r requirements2.txt` if you keep that file alongside it)
 
-## 2. Set your password
+### 2. Set your password
 
 Open `mariadb_terminal.py` and fill in the password here:
 
@@ -22,7 +44,7 @@ Open `mariadb_terminal.py` and fill in the password here:
 "password": "",     # fill in the password
 ```
 
-## 3. Run it
+### 3. Run it
 
 ```
 python mariadb_terminal.py
