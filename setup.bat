@@ -1,11 +1,40 @@
 @echo off
 REM Grandpa's MariaDB Terminal -- setup script (Windows)
 REM
-REM Creates a virtual environment and installs the packages the tool needs.
+REM Checks for MariaDB (installs if missing), creates a virtual environment,
+REM installs Python packages, and runs the configurator.
 REM Just double-click this file, or run it once:  setup.bat
 
 cd /d "%~dp0"
 
+REM ---- Check / install MariaDB ----
+where mariadbd.exe >nul 2>nul
+if %errorlevel% neq 0 (
+    where mysql.exe >nul 2>nul
+)
+if %errorlevel% neq 0 (
+    echo.
+    echo MariaDB is not installed. Attempting to install via winget...
+    winget install --id MariaDB.Server --accept-source-agreements --accept-package-agreements
+    if %errorlevel% neq 0 (
+        echo.
+        echo Could not install MariaDB automatically.
+        echo Please install MariaDB manually from: https://mariadb.org/download/
+        pause
+        exit /b 1
+    )
+    echo MariaDB installed.
+
+    REM Start the MariaDB service if it was registered as a service.
+    sc query MariaDB >nul 2>nul
+    if %errorlevel% equ 0 (
+        net start MariaDB >nul 2>nul
+    )
+) else (
+    echo MariaDB found.
+)
+
+REM ---- Check Python ----
 where py >nul 2>nul
 if %errorlevel%==0 (
     set "PY=py"

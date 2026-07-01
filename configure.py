@@ -14,8 +14,13 @@ Run directly, or let setup.bat / setup.sh call it for you:
 """
 
 import os
+import sys
 import getpass
 import base64
+
+# Ensure stdout can handle Unicode characters (e.g. Japanese path names).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 import tomlkit
 
