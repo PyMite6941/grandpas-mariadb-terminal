@@ -11,6 +11,7 @@ Made with love as a birthday gift for Grandpa. Happy birthday! 🎉
 import os
 import sys
 import time
+import base64
 
 # `readline` gives us up-arrow command history for free: Python's built-in
 # input() automatically gains that behavior on Linux/Mac the moment this
@@ -21,11 +22,16 @@ try:
 except ImportError:
     pass
 
+import datetime
+from decimal import Decimal
+
 import pymysql
 import tomlkit
 from rich.console import Console
 from rich.table import Table
 from rich.syntax import Syntax
+from rich.text import Text
+from rich import box
 
 console = Console()
 
@@ -39,25 +45,99 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.toml")
 
 # Defaults used if a key is missing from config.toml.
+# "socket" is the file path to the MariaDB unix socket -- leave it blank to
+# connect over TCP with host/port instead.
 DEFAULTS = {
     "use_password": True,
     "host": "127.0.0.1",
     "port": 3306,
     "user": "root",
     "password": "",
+    "socket": "",
+    "database": "",
     "charset": "utf8mb4",
+    # Cap how many rows are drawn in the table so a huge SELECT stays snappy.
+    # 0 means "show them all" (can be slow for very large results).
+    "max_display_rows": 1000,
 }
+
+# How many rows print_results will draw; set from config in main().
+MAX_DISPLAY_ROWS = 1000
+
+# The template written whenever config.toml is missing or corrupted.
+DEFAULT_CONFIG_TEXT = """\
+# Grandpa's MariaDB Terminal -- connection settings
+#
+# You can edit this file by hand, or run:  python configure.py
+
+# use_password toggles whether a password is sent at all:
+#   true  -> use the "password" value below
+#   false -> connect with no password (server set up without one)
+use_password = true
+
+host = "127.0.0.1"
+port = 3306
+user = "root"
+password = ""        # base64-encoded (configure.py handles this; see README)
+database = ""        # database to open on connect; blank = none (use USE ...; later)
+
+# socket = file path to the MariaDB unix socket. Leave it blank to connect
+# over TCP using host/port above. If you fill it in, it's used instead.
+socket = ""
+
+charset = "utf8mb4"
+
+# max_display_rows caps how many rows are drawn per result (0 = show all).
+max_display_rows = 1000
+"""
+
+
+def write_default_config():
+    """Write a fresh config.toml from the template."""
+    with open(CONFIG_PATH, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(DEFAULT_CONFIG_TEXT)
 
 
 def load_config():
-    """Read config.toml and return a plain settings dict."""
+    """Read config.toml and return a plain settings dict.
+
+    If the file is missing or corrupted it is (re)created from the
+    template so the program can always start -- with a clear message
+    so you know it happened.
+    """
+    if not os.path.exists(CONFIG_PATH):
+        console.print(
+            "[yellow]config.toml not found -- creating a fresh one "
+            "with default settings...[/yellow]"
+        )
+        write_default_config()
+
     settings = dict(DEFAULTS)
-    if os.path.exists(CONFIG_PATH):
+    try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as fh:
             data = tomlkit.parse(fh.read())
-        for key in DEFAULTS:
-            if key in data:
-                settings[key] = data[key]
+    except Exception as exc:
+        console.print(
+            f"[red]config.toml is corrupted ({exc}) -- recreating it "
+            f"with default settings...[/red]"
+        )
+        write_default_config()
+        with open(CONFIG_PATH, "r", encoding="utf-8") as fh:
+            data = tomlkit.parse(fh.read())
+
+    for key in DEFAULTS:
+        if key in data:
+            # unwrap tomlkit items into plain Python values
+            settings[key] = data[key].unwrap() if hasattr(data[key], "unwrap") else data[key]
+
+    # Decode base64-encoded password back to plaintext for connection
+    pw = settings.get("password", "")
+    if pw:
+        try:
+            settings["password"] = base64.b64decode(pw.encode()).decode()
+        except Exception:
+            pass  # not encoded, use as-is
+
     return settings
 
 
@@ -68,13 +148,55 @@ def connect():
     the same behavior as the standard `mysql` command-line client.
 
     When use_password is false we drop the password entirely so we can
-    log in to a server that has no password set.
+    log in to a server that has no password set. When a socket file path
+    is given we hand it to pymysql as unix_socket and skip host/port.
     """
     settings = load_config()
     use_password = bool(settings.pop("use_password", True))
     if not use_password:
         settings.pop("password", None)
+
+    # Display-only setting -- not a pymysql connection argument.
+    settings.pop("max_display_rows", None)
+
+    socket_path = settings.pop("socket", "")
+    if socket_path:
+        # A unix socket path was given -- use it instead of TCP host/port.
+        settings.pop("host", None)
+        settings.pop("port", None)
+        settings["unix_socket"] = socket_path
+
+    # An empty database means "connect without selecting one".
+    if not settings.get("database"):
+        settings.pop("database", None)
+
     return pymysql.connect(autocommit=True, **settings)
+
+
+def format_cell(value):
+    """Turn one result value into a color-coded rich Text object.
+
+    Returning a Text (with a style) instead of a markup string keeps this
+    fast on big result sets -- rich never has to re-parse markup -- and is
+    injection-safe: a value containing "[red]" is treated as literal text.
+    """
+    if value is None:
+        return Text("NULL", style="dim italic")
+    # bool must come before int -- in Python True/False are ints.
+    if isinstance(value, bool):
+        return Text(str(value), style="bright_green" if value else "bright_red")
+    if isinstance(value, (int, float, Decimal)):
+        return Text(str(value), style="yellow")
+    if isinstance(value, (datetime.datetime, datetime.date,
+                          datetime.time, datetime.timedelta)):
+        return Text(str(value), style="cyan")
+    if isinstance(value, (bytes, bytearray)):
+        # Binary/BLOB -- show a short hint rather than raw bytes.
+        return Text(f"<{len(value)} bytes>", style="blue")
+    text = str(value)
+    if text == "":
+        return Text("''", style="dim italic")
+    return Text(text, style="green")
 
 
 def print_results(cursor, elapsed):
@@ -87,34 +209,46 @@ def print_results(cursor, elapsed):
     if cursor.description is None:
         # Not a SELECT -- report affected rows instead.
         console.print(
-            f"[green]OK[/green] -- {cursor.rowcount} row(s) affected "
+            f"[bold green]OK[/bold green] -- "
+            f"[yellow]{cursor.rowcount}[/yellow] row(s) affected "
             f"[dim]({elapsed * 1000:.1f} ms)[/dim]"
         )
         return
 
     columns = [col[0] for col in cursor.description]
     rows = cursor.fetchall()
+    total = len(rows)
 
-    table = Table(show_lines=False, header_style="bold cyan")
+    # Only draw up to the cap -- rendering tens of thousands of rows through
+    # a styled table is slow, so we show the first chunk and say how many
+    # more there are. MAX_DISPLAY_ROWS = 0 means "draw everything".
+    shown = rows
+    if MAX_DISPLAY_ROWS and total > MAX_DISPLAY_ROWS:
+        shown = rows[:MAX_DISPLAY_ROWS]
+
+    table = Table(
+        box=box.ROUNDED,
+        border_style="bright_blue",
+        header_style="bold cyan",
+        row_styles=["", "on grey11"],   # subtle zebra striping
+    )
     for name in columns:
-        table.add_column(name)
+        # Text() keeps the header literal (no markup interpretation).
+        table.add_column(Text(str(name), style="bold cyan"))
 
-    for row in rows:
-        cells = []
-        for value in row:
-            if value is None:
-                cells.append("[dim]NULL[/dim]")
-            elif isinstance(value, bool):
-                cells.append(f"[magenta]{value}[/magenta]")
-            elif isinstance(value, (int, float)):
-                cells.append(f"[yellow]{value}[/yellow]")
-            else:
-                cells.append(str(value))
-        table.add_row(*cells)
+    for row in shown:
+        table.add_row(*[format_cell(value) for value in row])
 
     console.print(table)
+
+    if len(shown) < total:
+        console.print(
+            f"[yellow]Showing first {len(shown)} of {total} rows[/yellow] "
+            f"[dim](raise max_display_rows in config.toml to see more)[/dim]"
+        )
     console.print(
-        f"[dim]{len(rows)} row(s) in set ({elapsed * 1000:.1f} ms)[/dim]"
+        f"[bold green]{total}[/bold green] row(s) in set "
+        f"[dim]({elapsed * 1000:.1f} ms)[/dim]"
     )
 
 
@@ -152,9 +286,16 @@ def run_query(cursor, query):
 
 
 def main():
+    global MAX_DISPLAY_ROWS
     console.print("[bold green]Grandpa's MariaDB Terminal[/bold green]")
     console.print("Type SQL and press Enter. [dim]\\q to quit, "
                   "\\l list databases, \\d list tables, \\dt <t> describe.[/dim]\n")
+
+    # Pick up the display cap from config (falls back to the default).
+    try:
+        MAX_DISPLAY_ROWS = int(load_config().get("max_display_rows", MAX_DISPLAY_ROWS))
+    except (TypeError, ValueError):
+        pass
 
     try:
         conn = connect()

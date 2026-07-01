@@ -22,9 +22,10 @@ chmod +x setup.sh run.sh   # first time only
 ```
 
 The setup script installs the packages **and** asks you for your password,
-saving it into `config.toml` for you (using `tomlkit`, so the file's
-comments stay intact) — no manual editing needed. To change it later, just
-run `python configure.py` again.
+saving it base64-encoded into `config.toml` for you (using `tomlkit`, so
+the file's comments stay intact) — no manual editing needed. Your password
+is never stored in plaintext on disk. To change it later, just run
+`python configure.py` again.
 
 ---
 
@@ -41,20 +42,23 @@ pip install pymysql rich
 ### 2. Set your password
 
 The connection settings live in `config.toml`. The easiest way to set the
-password is to run the configurator, which writes it into the file for you:
+password is to run the configurator, which writes it base64-encoded into
+the file for you:
 
 ```
 python configure.py
 ```
 
-Or edit `config.toml` by hand:
+Your password is **never stored in plaintext** — `configure.py` encodes it
+before writing to disk, and the terminal decodes it when connecting. If you
+edit `config.toml` by hand, you can put a plaintext password (it works too):
 
 ```toml
 use_password = true   # set to false to connect without a password
-password = ""         # your MariaDB password (used only when use_password = true)
+password = ""         # base64-encoded; run configure.py to set it
 ```
 
-- If your server needs a password, leave `use_password = true` and fill in
+- If your server needs a password, leave `use_password = true` and set
   `password`.
 - If your server has **no** password set, change it to `use_password = false`
   and you can skip the password entirely.

@@ -1,0 +1,27 @@
+# Grandpa's MariaDB Terminal -- EXAMPLE config
+# =============================================
+#
+# This example is wired up to the test database in test/testdb.sql.
+# To use it:
+#   1. Load the test data:   mysql -u root -p < test/testdb.sql
+#   2. Copy this file:       cp .config.example.toml config.toml
+#   3. Set your password below (or run: python configure.py to have it base64-encoded)
+#   4. Start the tool:       ./run.sh   (or run.bat on Windows)
+
+use_password = true
+
+host = "127.0.0.1"
+port = 3306
+user = "root"
+password = ""            # base64-encoded; run configure.py to set it, or encode manually
+
+# Opens straight into the test database created by test/testdb.sql.
+database = "grandpas_test"
+
+# socket = file path to the MariaDB unix socket; blank = connect over TCP.
+socket = ""
+
+charset = "utf8mb4"
+
+# max_display_rows caps how many rows are drawn per result (0 = show all).
+max_display_rows = 1000
