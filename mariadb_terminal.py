@@ -13,6 +13,15 @@ import sys
 import time
 import base64
 
+# Make stdin/stdout speak UTF-8 so non-ASCII SQL and pasted text work
+# everywhere -- Windows consoles otherwise default to a legacy code page,
+# which mangles Unicode and turns a UTF-8 BOM into stray characters.
+for _stream in (sys.stdin, sys.stdout):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 # `readline` gives us up-arrow command history for free: Python's built-in
 # input() automatically gains that behavior on Linux/Mac the moment this
 # module is imported, even though we never call it directly. (It may be
@@ -338,7 +347,9 @@ def main():
     # the mysql client, and most database tools use under the hood.
     while True:
         try:
-            line = input("sql> ").strip()
+            # Strip a stray BOM (U+FEFF) that can sneak in from pasted or
+            # piped input, then trim whitespace.
+            line = input("sql> ").replace("﻿", "").strip()
         except (EOFError, KeyboardInterrupt):
             console.print("\n[dim]Bye![/dim]")
             break
