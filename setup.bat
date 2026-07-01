@@ -25,7 +25,7 @@ echo Creating a virtual environment in .venv ...
 
 echo Installing packages (pymysql, rich, tomlkit) ...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
-".venv\Scripts\python.exe" -m pip install -r requirements2.txt
+".venv\Scripts\python.exe" -m pip install -r requirements.txt
 
 echo.
 echo Now let's set up your connection (this writes config.toml).

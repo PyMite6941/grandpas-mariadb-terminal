@@ -24,7 +24,7 @@ echo "Creating a virtual environment in .venv ..."
 
 echo "Installing packages (pymysql, rich, tomlkit) ..."
 ./.venv/bin/python -m pip install --upgrade pip >/dev/null
-./.venv/bin/python -m pip install -r requirements2.txt
+./.venv/bin/python -m pip install -r requirements.txt
 
 echo
 echo "Now let's set up your connection (this writes config.toml)."

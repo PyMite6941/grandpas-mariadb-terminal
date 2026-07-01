@@ -37,7 +37,7 @@ is never stored in plaintext on disk. To change it later, just run
 pip install pymysql rich
 ```
 
-(or `pip install -r requirements2.txt` if you keep that file alongside it)
+(or `pip install -r requirements.txt` if you keep that file alongside it)
 
 ### 2. Set your password
 
