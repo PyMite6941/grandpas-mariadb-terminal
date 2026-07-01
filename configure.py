@@ -30,19 +30,25 @@ TESTDB_SQL = os.path.join(HERE, "test", "testdb.sql")
 TEST_DB_NAME = "grandpas_test"
 
 
+# Encoded passwords carry this tag so plaintext is never mistaken for base64.
+B64_PREFIX = "b64:"
+
+
 def _encode_password(pw):
     if not pw:
         return ""
-    return base64.b64encode(pw.encode()).decode()
+    return B64_PREFIX + base64.b64encode(pw.encode()).decode()
 
 
 def _decode_password(pw):
     if not pw:
         return ""
-    try:
-        return base64.b64decode(pw.encode()).decode()
-    except Exception:
-        return pw
+    if pw.startswith(B64_PREFIX):
+        try:
+            return base64.b64decode(pw[len(B64_PREFIX):].encode()).decode()
+        except Exception:
+            return ""
+    return pw  # untagged -> plaintext, use as-is
 
 
 def fresh_doc():
@@ -57,6 +63,7 @@ def fresh_doc():
     doc["database"] = ""
     doc["charset"] = "utf8mb4"
     doc["max_display_rows"] = 1000
+    doc["update_level"] = "patch"
     return doc
 
 

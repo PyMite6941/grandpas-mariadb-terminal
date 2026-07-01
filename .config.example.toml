@@ -25,3 +25,7 @@ charset = "utf8mb4"
 
 # max_display_rows caps how many rows are drawn per result (0 = show all).
 max_display_rows = 1000
+
+# update_level: how big a GitHub change must be before update.py prompts you.
+#   "patch" = every update, "minor" = minor+major only, "major" = major only.
+update_level = "patch"

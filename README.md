@@ -88,6 +88,28 @@ query tells you how many rows it returned and how long it took.
 
 ---
 
+## Keeping it up to date
+
+Run the update checker any time:
+
+```
+python update.py          # or:  ./update.sh   /   update.bat
+```
+
+It compares your local `VERSION` with the latest on GitHub and offers to
+pull the update (via `git pull` if this is a clone). You decide how big a
+change has to be before it bothers you, with `update_level` in
+`config.toml`:
+
+- `"patch"` — tell me about every update (default)
+- `"minor"` — only minor or bigger releases
+- `"major"` — only major releases
+
+Handy flags: `--check` (just tell me, don't install), `--yes` (update
+without asking), `--level minor` (override the config for one run).
+
+---
+
 ## How the code works
 
 **`connect()`** opens the connection using `pymysql`, with

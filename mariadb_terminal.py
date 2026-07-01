@@ -89,7 +89,32 @@ charset = "utf8mb4"
 
 # max_display_rows caps how many rows are drawn per result (0 = show all).
 max_display_rows = 1000
+
+# update_level: how big a GitHub change must be before update.py prompts you.
+#   "patch" = every update, "minor" = minor+major only, "major" = major only.
+update_level = "patch"
 """
+
+
+# Passwords written by configure.py are tagged with this prefix so we can
+# tell an encoded value apart from a plaintext one with certainty.
+B64_PREFIX = "b64:"
+
+
+def decode_password(pw):
+    """Return the usable plaintext password.
+
+    A value tagged "b64:" was written by configure.py and is base64; a
+    value without the tag is used exactly as typed (plaintext is fine).
+    """
+    if not isinstance(pw, str) or not pw:
+        return ""
+    if pw.startswith(B64_PREFIX):
+        try:
+            return base64.b64decode(pw[len(B64_PREFIX):].encode()).decode()
+        except Exception:
+            return ""  # tag present but unreadable -> treat as no password
+    return pw
 
 
 def write_default_config():
@@ -130,13 +155,16 @@ def load_config():
             # unwrap tomlkit items into plain Python values
             settings[key] = data[key].unwrap() if hasattr(data[key], "unwrap") else data[key]
 
-    # Decode base64-encoded password back to plaintext for connection
-    pw = settings.get("password", "")
-    if pw:
-        try:
-            settings["password"] = base64.b64decode(pw.encode()).decode()
-        except Exception:
-            pass  # not encoded, use as-is
+    # Decode the password. configure.py tags encoded values with a "b64:"
+    # prefix, so there is never any ambiguity with a hand-typed plaintext
+    # password (which is used exactly as written).
+    settings["password"] = decode_password(settings.get("password", ""))
+
+    # Coerce types that pymysql is picky about, in case they were hand-edited.
+    try:
+        settings["port"] = int(settings.get("port", 3306))
+    except (TypeError, ValueError):
+        settings["port"] = 3306
 
     return settings
 
